@@ -10,7 +10,7 @@ using Microsoft.Xna.Framework.Content;
 
 namespace MonoGameWindowsStarter
 {
-    class Meteor
+    public class Meteor
     {
         Game1 game;
         BoundingRectangle bounds;
@@ -38,8 +38,17 @@ namespace MonoGameWindowsStarter
             randxVelocity = random.Next(1, (int)(2 * difficulty/2));
             randyVelocity = random.Next(1, (int)(10 * difficulty/2));
             randxSpawn = random.Next(1, 700);
-            randomSize = random.Next(25, 100);
+            randomSize = random.Next(25, 150);
             LoadContent(content);
+        }
+        public Meteor(Game1 game, ContentManager content, Random random, float difficulty, int max_size, int xLocation, int yLocation)
+        {
+            this.game = game;
+            randxVelocity = random.Next(-5, (int)(4 * difficulty));
+            randyVelocity = random.Next(-5, (int)(10 * difficulty));
+            randomSize = random.Next(15, max_size / 2);
+            LoadContent(content, xLocation, yLocation);
+
         }
 
         public void LoadContent(ContentManager content)
@@ -49,6 +58,14 @@ namespace MonoGameWindowsStarter
             bounds.Height = randomSize;
             bounds.Y = -10;
             bounds.X = randxSpawn;
+        }
+        public void LoadContent(ContentManager content, int xSpawn, int ySpawn)
+        {
+            texture = content.Load<Texture2D>("meteor");
+            bounds.Width = randomSize;
+            bounds.Height = randomSize;
+            bounds.Y = ySpawn;
+            bounds.X = xSpawn;
         }
         public void Update(GameTime gameTime)
         {

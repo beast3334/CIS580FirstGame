@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework.Audio;
+using Microsoft.Xna.Framework.Media;
 namespace MonoGameWindowsStarter
 {
     /// <summary>
@@ -15,8 +17,9 @@ namespace MonoGameWindowsStarter
         Background background;
         Ship ship;
         List<Meteor> meteors = new List<Meteor>();
+        List<Laser> lasers = new List<Laser>();
         Random random = new Random();
-        
+        Song song;
         
         private SpriteFont scoreFont;
         private SpriteFont gameOverFont;
@@ -40,8 +43,9 @@ namespace MonoGameWindowsStarter
         protected override void Initialize()
         {
             // TODO: Add your initialization logic here
-            graphics.PreferredBackBufferWidth = 1042;
-            graphics.PreferredBackBufferHeight = 768;
+            graphics.PreferredBackBufferWidth = 1280;
+            graphics.PreferredBackBufferHeight = 720;
+            graphics.ApplyChanges();
             base.Initialize();
         }
 
@@ -59,6 +63,10 @@ namespace MonoGameWindowsStarter
             gameOverFont = Content.Load<SpriteFont>("GameOver");
             entertoContinueFont = Content.Load<SpriteFont>("EnterToContinue");
             difficultyFont = Content.Load<SpriteFont>("Difficulty");
+            song = Content.Load<Song>("Slow_Synth");
+            MediaPlayer.Play(song);
+            MediaPlayer.IsRepeating = true;
+
             // TODO: use this.Content to load your game content here
         }
 
@@ -89,23 +97,51 @@ namespace MonoGameWindowsStarter
 
                 if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                     Exit();
-                ship.Update(gameTime);
+                ship.Update(gameTime, ref lasers);
                 spawn += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
                 phasetimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                
+                //meteor update logic
                 foreach (Meteor meteor in meteors)
                 {
                     meteor.Update(gameTime);
                 }
+                //check if meteor is off screen, or if laser collides with one
                 for (int i = 0; i < meteors.Count; i++)
                 {
                     if (!meteors[i].isVisible)
                     {
-                        score += maxMeteors * 10;
+                        score += 5 * (int)difficulty;
                         meteors.RemoveAt(i);
                         i--;
+                        continue;
+                    }
+                    for(int j = 0; j < lasers.Count; j ++)
+                    {
+                        if(!lasers[j].isVisible)
+                        {
+                            lasers.RemoveAt(j);
+                            j--;
+                            continue;
+                        }
+                        if (lasers[j].RectBounds.Intersects(meteors[i].RectBounds))
+                        {
+                            score += 10 * (int)difficulty;
+                            if(!(meteors[i].Bounds.Height < 40))
+                            {
+                                BlownUpMeteor(meteors[i]);
+                            }
+                            meteors.RemoveAt(i);
+                            lasers.RemoveAt(j);
+                            i--;
+                            j--;
+                        }
                     }
                 }
+
+
                 LoadMeteors();
+
                 foreach (Meteor meteor in meteors)
                 {
 
@@ -115,6 +151,12 @@ namespace MonoGameWindowsStarter
                         break;
                     }
                 }
+
+                //laser update logic
+                foreach(Laser laser in lasers)
+                {
+                    laser.Update(gameTime);
+                }
             }
             else
             {
@@ -122,8 +164,9 @@ namespace MonoGameWindowsStarter
                 difficulty = 1;
                 phasetimer = 0;
                 spawnRate = 1;
-                maxMeteors = 10;
+                maxMeteors = 20;
                 meteors.Clear();
+                lasers.Clear();
                 if (Keyboard.GetState().IsKeyDown(Keys.Space))
                 {
                     score = 0;
@@ -155,6 +198,35 @@ namespace MonoGameWindowsStarter
                 }
             }
         }
+        public void BlownUpMeteor(Meteor meteor)
+        {
+            if(meteor.Bounds.Height <= 40)
+            {
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                return;
+            }
+            if(meteor.Bounds.Height <= 60)
+            {
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                return;
+            }
+            if(meteor.Bounds.Height <= 80)
+            {
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                return;
+            }
+            else
+            {
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                meteors.Add(new Meteor(this, Content, random, difficulty, (int)meteor.Bounds.Height, (int)meteor.Bounds.X, (int)meteor.Bounds.Y));
+                return;
+            }
+        }
 
         /// <summary>
         /// This is called when the game should draw itself.
@@ -167,12 +239,17 @@ namespace MonoGameWindowsStarter
             if (!ship.Destroyed)
             {
                 ship.Draw(spriteBatch);
+                
                 spriteBatch.DrawString(scoreFont, "Score: " + score, new Vector2(0, 0), Color.White);
                 spriteBatch.DrawString(difficultyFont, "Difficulty: " + difficulty, new Vector2(0, 20), Color.White);
                 foreach (Meteor meteor in meteors)
                 {
                     meteor.Draw(spriteBatch);
-                }   
+                }
+                foreach(Laser laser in lasers)
+                {
+                    laser.Draw(spriteBatch);
+                }
             }
             else
             {

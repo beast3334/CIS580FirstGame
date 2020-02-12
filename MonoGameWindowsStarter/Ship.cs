@@ -7,17 +7,32 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Content;
-
+using Microsoft.Xna.Framework.Audio;
 namespace MonoGameWindowsStarter
 {
+    enum State
+    {
+        Idle = 0,
+        Up = 1,
+        Right = 2,
+        Left = 3
+        
+    }
     class Ship
     {
         Game1 game;
+        ContentManager content;
         BoundingRectangle bounds;
         Texture2D texture;
-        Texture2D texture2;
+        SoundEffect laserShot;
+        TimeSpan timer;
+        int frame;
         Boolean destroyed = false;
-
+        const int ANIMATION_FRAME_RATE = 124;
+        const int FRAME_WIDTH = 100;
+        const int FRAME_HEIGHT = 90;
+        State state;
+       
         public bool Destroyed
         {
             get { return destroyed; }
@@ -37,6 +52,9 @@ namespace MonoGameWindowsStarter
         public Ship(Game1 game)
         {
             this.game = game;
+
+            state = State.Idle;
+            timer = new TimeSpan(0);
         }
         
         public void reset()
@@ -45,37 +63,71 @@ namespace MonoGameWindowsStarter
             bounds.X = game.GraphicsDevice.Viewport.Width / 2 - 38;
             destroyed = false;
         }
-
         public void LoadContent(ContentManager content)
         {
+            this.content = content;
+            laserShot = content.Load<SoundEffect>("Laser_Shoot");
             texture = content.Load<Texture2D>("playerShip");
-            texture2 = content.Load<Texture2D>("explosion");
-            bounds.Width = 50;
-            bounds.Height = 38;
+            
+            //set master volume of sound effect
+            SoundEffect.MasterVolume = 0.4f;
+
+            bounds.Width = 80;
+            bounds.Height = 70;
             bounds.Y = game.GraphicsDevice.Viewport.Height - 50;
             bounds.X = game.GraphicsDevice.Viewport.Width/2 - 38;
         }
-        public void Update(GameTime gameTime)
+        float shootLag = 0;
+        public void Update(GameTime gameTime, ref List<Laser> lasers)
         {
             if(!destroyed)
             {
+                shootLag += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
                 var keyboardState = Keyboard.GetState();
                 if(keyboardState.IsKeyDown(Keys.Up))
                 {
                     bounds.Y -= (float)gameTime.ElapsedGameTime.TotalMilliseconds/2;
+                    state = State.Up;
                 }
                 if (keyboardState.IsKeyDown(Keys.Down))
                 {
                     bounds.Y += (float)gameTime.ElapsedGameTime.TotalMilliseconds / 2;
+                    state = State.Up;
                 }
                 if (keyboardState.IsKeyDown(Keys.Left))
                 {
                     bounds.X -= (float)gameTime.ElapsedGameTime.TotalMilliseconds / 2;
+                    state = State.Left;
                 }
                 if (keyboardState.IsKeyDown(Keys.Right))
                 {
                     bounds.X += (float)gameTime.ElapsedGameTime.TotalMilliseconds / 2;
+                    state = State.Right;
                 }
+                if(keyboardState.IsKeyUp(Keys.Right) && keyboardState.IsKeyUp(Keys.Left) && keyboardState.IsKeyUp(Keys.Up))
+                {
+                    state = State.Idle;
+                }
+                if(keyboardState.IsKeyDown(Keys.Space))
+                {
+                    if(shootLag > 500)
+                    {
+                        lasers.Add(new Laser(game, content, (int)bounds.X + 50, (int)bounds.Y));
+                        laserShot.Play();
+                        shootLag = 0;
+                    }
+                }
+
+                if (state != State.Idle) timer += gameTime.ElapsedGameTime;
+
+                while(timer.TotalMilliseconds > ANIMATION_FRAME_RATE)
+                {
+                    frame++;
+
+                    timer -= new TimeSpan(0, 0, 0, 0, ANIMATION_FRAME_RATE);
+                }
+
+                frame %= 1;
             }
             //check Y bounds
             if (bounds.Y < 0)
@@ -101,13 +153,13 @@ namespace MonoGameWindowsStarter
         {
             if (!destroyed)
             {
-                spriteBatch.Draw(texture, bounds, Color.White);
+                var source = new Rectangle(
+                    frame * FRAME_WIDTH,
+                    (int)state % 4 * FRAME_HEIGHT,
+                    FRAME_WIDTH,
+                    FRAME_HEIGHT);
+                spriteBatch.Draw(texture, bounds, source, Color.White);
             }
-            else
-            {
-                spriteBatch.Draw(texture2, bounds, Color.White);
-            }
-
         }
     }
 }
